@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllResumes, deleteResume } from "../services/adminService";
+import api from "../services/api";
 import "./AdminDashboard.css";
+
+const API_ORIGIN = api.defaults.baseURL.replace(/\/api\/?$/, "");
 
 function formatDate(dateString) {
     if (!dateString) return "";
@@ -99,6 +102,8 @@ function AdminDashboard() {
         );
     }
 
+    const adminPictureUrl = admin?.profilePicture ? `${API_ORIGIN}${admin.profilePicture}` : null;
+
     return (
         <div className="admin-page">
             <div className="background-circle circle-one"></div>
@@ -127,12 +132,24 @@ function AdminDashboard() {
                 {/* Admin profile */}
                 {admin && (
                     <div className="profile-card">
-                        <div className="profile-avatar admin-avatar">
-                            {admin.name?.charAt(0).toUpperCase()}
+                        <div
+                            className="profile-avatar admin-avatar"
+                            style={adminPictureUrl ? { padding: 0, overflow: "hidden" } : undefined}
+                        >
+                            {adminPictureUrl ? (
+                                <img
+                                    src={adminPictureUrl}
+                                    alt={admin.name}
+                                    style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
+                                />
+                            ) : (
+                                admin.name?.charAt(0).toUpperCase()
+                            )}
                         </div>
                         <div>
                             <h2>{admin.name}</h2>
                             <p>{admin.email}</p>
+                            {admin.bio && <p style={{ margin: "2px 0 6px" }}>{admin.bio}</p>}
                             <span className="role-badge admin-badge">admin</span>
                         </div>
                         <div className="stat-block">
@@ -164,44 +181,61 @@ function AdminDashboard() {
                         </div>
                     ) : (
                         <div className="resume-list">
-                            {filteredResumes.map((resume) => (
-                                <div className="resume-row" key={resume._id}>
-                                    <div className="resume-row-avatar">
-                                        {resume.user?.name?.charAt(0).toUpperCase() || "?"}
-                                    </div>
+                            {filteredResumes.map((resume) => {
+                                const rowPictureUrl = resume.user?.profilePicture
+                                    ? `${API_ORIGIN}${resume.user.profilePicture}`
+                                    : null;
 
-                                    <div className="resume-row-info">
-                                        <strong>{resume.user?.name || "Unknown"}</strong>
-                                        <span>{resume.user?.email}</span>
-                                    </div>
-
-                                    <div className="resume-row-meta">
-                                        <span className="file-name">
-                                            {resume.originalFile?.originalName || "resume"}
-                                        </span>
-                                        <span className="file-date">
-                                            {formatDate(resume.createdAt)}
-                                        </span>
-                                    </div>
-
-                                    <div className="resume-row-actions">
-                                        <button
-                                            className="view-button"
-                                            onClick={() => setSelectedResume(resume)}
+                                return (
+                                    <div className="resume-row" key={resume._id}>
+                                        <div
+                                            className="resume-row-avatar"
+                                            style={rowPictureUrl ? { padding: 0, overflow: "hidden" } : undefined}
                                         >
-                                            View →
-                                        </button>
-                                        <button
-                                            className="delete-button"
-                                            title="Delete resume"
-                                            aria-label="Delete resume"
-                                            onClick={() => setResumeToDelete(resume)}
-                                        >
-                                            🗑
-                                        </button>
+                                            {rowPictureUrl ? (
+                                                <img
+                                                    src={rowPictureUrl}
+                                                    alt={resume.user?.name}
+                                                    style={{ width: "100%", height: "100%", objectFit: "cover", borderRadius: "50%" }}
+                                                />
+                                            ) : (
+                                                resume.user?.name?.charAt(0).toUpperCase() || "?"
+                                            )}
+                                        </div>
+
+                                        <div className="resume-row-info">
+                                            <strong>{resume.user?.name || "Unknown"}</strong>
+                                            <span>{resume.user?.email}</span>
+                                        </div>
+
+                                        <div className="resume-row-meta">
+                                            <span className="file-name">
+                                                {resume.originalFile?.originalName || "resume"}
+                                            </span>
+                                            <span className="file-date">
+                                                {formatDate(resume.createdAt)}
+                                            </span>
+                                        </div>
+
+                                        <div className="resume-row-actions">
+                                            <button
+                                                className="view-button"
+                                                onClick={() => setSelectedResume(resume)}
+                                            >
+                                                View →
+                                            </button>
+                                            <button
+                                                className="delete-button"
+                                                title="Delete resume"
+                                                aria-label="Delete resume"
+                                                onClick={() => setResumeToDelete(resume)}
+                                            >
+                                                🗑
+                                            </button>
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                     )}
                 </div>
@@ -213,9 +247,33 @@ function AdminDashboard() {
                     <div className="detail-modal" onClick={(e) => e.stopPropagation()}>
 
                         <div className="detail-modal-header">
+                            {selectedResume.user?.profilePicture && (
+                                <img
+                                    src={`${API_ORIGIN}${selectedResume.user.profilePicture}`}
+                                    alt={selectedResume.user?.name}
+                                    style={{
+                                        width: "48px",
+                                        height: "48px",
+                                        borderRadius: "50%",
+                                        objectFit: "cover",
+                                        marginRight: "12px",
+                                        flexShrink: 0,
+                                    }}
+                                />
+                            )}
                             <div>
                                 <h2>{selectedResume.user?.name}</h2>
                                 <p>{selectedResume.user?.email}</p>
+                                {selectedResume.user?.bio && (
+                                    <p style={{ margin: "4px 0 0", fontSize: "13px" }}>
+                                        {selectedResume.user.bio}
+                                    </p>
+                                )}
+                                {selectedResume.user?.phone && (
+                                    <p style={{ margin: "2px 0 0", fontSize: "13px" }}>
+                                        {selectedResume.user.phone}
+                                    </p>
+                                )}
                             </div>
                             <div className="detail-modal-header-actions">
                                 <button

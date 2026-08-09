@@ -151,10 +151,10 @@
     color: var(--ink);
     border: 1px solid var(--line);
     border-radius: 16px;
-    padding: 24px 28px;
+    padding: 28px 32px;
     display: flex;
     align-items: center;
-    gap: 18px;
+    gap: 22px;
     box-shadow: 0 1px 2px rgba(20, 23, 31, 0.04);
     transition: box-shadow 0.2s ease;
 }
@@ -163,14 +163,15 @@
     box-shadow: 0 8px 24px rgba(20, 23, 31, 0.08);
 }
 
+/* Profile picture / avatar — enlarged so the photo and initials are clearly visible */
 .profile-avatar {
-    width: 52px;
-    height: 52px;
-    border-radius: 13px;
+    width: 84px;
+    height: 84px;
+    border-radius: 18px;
     background: var(--accent-soft);
     color: var(--accent);
     font-family: "Space Grotesk", sans-serif;
-    font-size: 20px;
+    font-size: 32px;
     font-weight: 700;
     display: flex;
     align-items: center;
@@ -179,27 +180,31 @@
 }
 
 .profile-card h2 {
-    margin: 0 0 2px;
-    font-size: 15px;
-    font-weight: 600;
+    margin: 0 0 4px;
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--ink);
 }
 
+/* Email / bio / phone text — larger and darker so it's no longer low-contrast */
 .profile-card p {
-    margin: 0 0 6px;
-    color: var(--ink-soft);
-    font-size: 13px;
+    margin: 0 0 8px;
+    color: var(--ink);
+    font-size: 15px;
+    font-weight: 500;
+    opacity: 1;
 }
 
 .role-badge {
     display: inline-block;
     background: var(--accent-soft);
     color: var(--accent);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: 11px;
+    font-weight: 700;
     font-family: "IBM Plex Mono", monospace;
     text-transform: uppercase;
     letter-spacing: 0.06em;
-    padding: 3px 9px;
+    padding: 4px 10px;
     border-radius: 5px;
 }
 
