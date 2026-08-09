@@ -1,0 +1,15 @@
+.register-container {
+    position: relative;
+    z-index: 2;
+    min-height: 100vh;
+    width: min(1100px, 92%);
+    margin: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.register-card {
+    max-width: 480px;
+    margin: 0;
+}
