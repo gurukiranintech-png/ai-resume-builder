@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { getAllResumes, deleteResume } from "../services/adminService";
 import api from "../services/api";
+import jsPDF from "jspdf";
 import "./AdminDashboard.css";
 
 const API_ORIGIN = api.defaults.baseURL.replace(/\/api\/?$/, "");
@@ -85,6 +86,34 @@ function AdminDashboard() {
         } finally {
             setDeleting(false);
         }
+    };
+
+    const downloadSummaryAsPdf = (resume) => {
+        const doc = new jsPDF();
+        const marginX = 15;
+        let y = 20;
+
+        doc.setFontSize(16);
+        doc.text(resume.user?.name || "Candidate", marginX, y);
+        y += 8;
+
+        doc.setFontSize(11);
+        doc.setTextColor(100);
+        doc.text(resume.user?.email || "", marginX, y);
+        y += 6;
+        doc.text(`Submitted: ${formatDate(resume.createdAt)}`, marginX, y);
+        y += 12;
+
+        doc.setTextColor(0);
+        doc.setFontSize(13);
+        doc.text("AI Summary", marginX, y);
+        y += 8;
+
+        doc.setFontSize(11);
+        const lines = doc.splitTextToSize(resume.summary || "No summary available.", 180);
+        doc.text(lines, marginX, y);
+
+        doc.save(`${(resume.user?.name || "candidate").replace(/\s+/g, "_")}_summary.pdf`);
     };
 
     const filteredResumes = resumes.filter((r) => {
@@ -209,9 +238,6 @@ function AdminDashboard() {
                                         </div>
 
                                         <div className="resume-row-meta">
-                                            <span className="file-name">
-                                                {resume.originalFile?.originalName || "resume"}
-                                            </span>
                                             <span className="file-date">
                                                 {formatDate(resume.createdAt)}
                                             </span>
@@ -241,7 +267,7 @@ function AdminDashboard() {
                 </div>
             </div>
 
-            {/* Detail modal */}
+            {/* Detail modal — summary only */}
             {selectedResume && (
                 <div className="modal-overlay" onClick={() => setSelectedResume(null)}>
                     <div className="detail-modal" onClick={(e) => e.stopPropagation()}>
@@ -264,16 +290,9 @@ function AdminDashboard() {
                             <div>
                                 <h2>{selectedResume.user?.name}</h2>
                                 <p>{selectedResume.user?.email}</p>
-                                {selectedResume.user?.bio && (
-                                    <p style={{ margin: "4px 0 0", fontSize: "13px" }}>
-                                        {selectedResume.user.bio}
-                                    </p>
-                                )}
-                                {selectedResume.user?.phone && (
-                                    <p style={{ margin: "2px 0 0", fontSize: "13px" }}>
-                                        {selectedResume.user.phone}
-                                    </p>
-                                )}
+                                <p style={{ margin: "2px 0 0", fontSize: "13px", color: "#888" }}>
+                                    Submitted {formatDate(selectedResume.createdAt)}
+                                </p>
                             </div>
                             <div className="detail-modal-header-actions">
                                 <button
@@ -294,122 +313,19 @@ function AdminDashboard() {
                         </div>
 
                         <div className="detail-modal-body">
-
-                            {selectedResume.personalInfo && (
-                                <div className="resume-section">
-                                    <h3>Personal Info</h3>
-                                    <div className="info-grid">
-                                        {selectedResume.personalInfo.name && (
-                                            <span>{selectedResume.personalInfo.name}</span>
-                                        )}
-                                        {selectedResume.personalInfo.phone && (
-                                            <span>{selectedResume.personalInfo.phone}</span>
-                                        )}
-                                        {selectedResume.personalInfo.location && (
-                                            <span>{selectedResume.personalInfo.location}</span>
-                                        )}
-                                        {selectedResume.personalInfo.github && (
-                                            <span>{selectedResume.personalInfo.github}</span>
-                                        )}
-                                        {selectedResume.personalInfo.linkedin && (
-                                            <span>{selectedResume.personalInfo.linkedin}</span>
-                                        )}
-                                    </div>
-                                </div>
-                            )}
-
-                            {selectedResume.summary && (
-                                <div className="resume-section summary-highlight">
-                                    <h3>AI Summary</h3>
-                                    <p>{selectedResume.summary}</p>
-                                </div>
-                            )}
-
-                            {selectedResume.skills?.length > 0 && (
-                                <div className="resume-section">
-                                    <h3>Skills</h3>
-                                    <div className="tag-list">
-                                        {selectedResume.skills.map((skill, i) => (
-                                            <span className="tag" key={i}>{skill}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {selectedResume.experience?.length > 0 && (
-                                <div className="resume-section">
-                                    <h3>Experience</h3>
-                                    {selectedResume.experience.map((exp, i) => (
-                                        <div className="entry" key={i}>
-                                            <strong>{exp.title || exp.role}</strong>
-                                            {exp.company && <span> · {exp.company}</span>}
-                                            {exp.description && <p>{exp.description}</p>}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {selectedResume.projects?.length > 0 && (
-                                <div className="resume-section">
-                                    <h3>Projects</h3>
-                                    {selectedResume.projects.map((proj, i) => (
-                                        <div className="entry" key={i}>
-                                            <strong>{proj.title || proj.name}</strong>
-                                            {proj.description && <p>{proj.description}</p>}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {selectedResume.education?.length > 0 && (
-                                <div className="resume-section">
-                                    <h3>Education</h3>
-                                    {selectedResume.education.map((edu, i) => (
-                                        <div className="entry" key={i}>
-                                            <strong>{edu.degree || edu.institution}</strong>
-                                            {edu.institution && edu.degree && (
-                                                <span> · {edu.institution}</span>
-                                            )}
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {selectedResume.certifications?.length > 0 && (
-                                <div className="resume-section">
-                                    <h3>Certifications</h3>
-                                    <div className="tag-list">
-                                        {selectedResume.certifications.map((cert, i) => (
-                                            <span className="tag" key={i}>{cert}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            {selectedResume.awards?.length > 0 && (
-                                <div className="resume-section">
-                                    <h3>Awards</h3>
-                                    <div className="tag-list">
-                                        {selectedResume.awards.map((award, i) => (
-                                            <span className="tag" key={i}>{award}</span>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-
-                            <div className="resume-section file-info-section">
-                                <h3>File</h3>
-                                <div className="file-meta">
-                                    <span className="file-icon">📎</span>
-                                    <span className="file-name">
-                                        {selectedResume.originalFile?.originalName}
-                                    </span>
-                                    <span className="file-date">
-                                        uploaded {formatDate(selectedResume.createdAt)}
-                                    </span>
-                                </div>
+                            <div className="resume-section summary-highlight">
+                                <h3>AI Summary</h3>
+                                <p>{selectedResume.summary || "No summary available."}</p>
                             </div>
 
+                            <div style={{ marginTop: "16px" }}>
+                                <button
+                                    className="upload-link"
+                                    onClick={() => downloadSummaryAsPdf(selectedResume)}
+                                >
+                                    Download Summary as PDF
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -423,7 +339,7 @@ function AdminDashboard() {
                         <p>
                             This will permanently remove{" "}
                             <strong>{resumeToDelete.user?.name || "this"}</strong>'s submitted
-                            resume. This action can't be undone.
+                            information. This action can't be undone.
                         </p>
                         <div className="confirm-dialog-actions">
                             <button
