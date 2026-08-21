@@ -30,6 +30,7 @@ function AdminDashboard() {
     const [users, setUsers] = useState([]);
     const [stats, setStats] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState("");
     const [toast, setToast] = useState("");
 
@@ -80,23 +81,91 @@ function AdminDashboard() {
     }, [toast]);
 
     const loadAllAdminData = async () => {
-        setLoading(true);
+        setRefreshing(true);
         setError("");
+
         try {
-            const [resumesData, usersData, statsData] = await Promise.all([
+            const [resumesRes, usersRes, statsRes] = await Promise.allSettled([
                 getAllResumes(),
                 getAllUsers(),
                 getAdminStats(),
             ]);
 
-            if (resumesData.success) setResumes(resumesData.resumes || []);
-            if (usersData.success) setUsers(usersData.users || []);
-            if (statsData.success) setStats(statsData.stats || null);
+            let loadedResumes = [];
+            let loadedUsers = [];
+            let loadedStats = null;
+            let failureReasons = [];
+
+            if (resumesRes.status === "fulfilled" && resumesRes.value?.success) {
+                loadedResumes = resumesRes.value.resumes || [];
+                setResumes(loadedResumes);
+            } else if (resumesRes.status === "rejected") {
+                console.error("Resumes fetch error:", resumesRes.reason);
+                failureReasons.push("Resumes");
+            }
+
+            if (usersRes.status === "fulfilled" && usersRes.value?.success) {
+                loadedUsers = usersRes.value.users || [];
+                setUsers(loadedUsers);
+            } else if (usersRes.status === "rejected") {
+                console.error("Users fetch error:", usersRes.reason);
+                failureReasons.push("Users");
+            }
+
+            if (statsRes.status === "fulfilled" && statsRes.value?.success) {
+                loadedStats = statsRes.value.stats || null;
+                setStats(loadedStats);
+            } else if (statsRes.status === "rejected") {
+                console.error("Stats fetch error:", statsRes.reason);
+            }
+
+            // Client-side fallback stats calculation if backend stats endpoint was unavailable
+            if (!loadedStats && (loadedUsers.length > 0 || loadedResumes.length > 0)) {
+                const skillCounts = {};
+                let resumesWithSummary = 0;
+                let resumesWithExp = 0;
+                let resumesWithProj = 0;
+
+                loadedResumes.forEach((r) => {
+                    if (r.summary && r.summary.trim().length > 0) resumesWithSummary++;
+                    if ((r.experience || []).length > 0) resumesWithExp++;
+                    if ((r.projects || []).length > 0) resumesWithProj++;
+                    (r.skills || []).forEach((sk) => {
+                        const s = sk.trim();
+                        if (s) skillCounts[s] = (skillCounts[s] || 0) + 1;
+                    });
+                });
+
+                const topSkills = Object.entries(skillCounts)
+                    .map(([name, count]) => ({ name, count }))
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 10);
+
+                setStats({
+                    totalUsers: loadedUsers.length,
+                    totalResumes: loadedResumes.length,
+                    resumesWithSummary,
+                    resumesWithExperience: resumesWithExp,
+                    resumesWithProjects: resumesWithProj,
+                    topSkills,
+                    completionRate: loadedUsers.length > 0 ? Math.round((loadedResumes.length / loadedUsers.length) * 100) : 0,
+                });
+            }
+
+            if (failureReasons.length === 3) {
+                const authErr = resumesRes.reason?.response?.status === 401 || usersRes.reason?.response?.status === 401;
+                if (authErr) {
+                    setError("Session expired or unauthorized. Please re-login with your admin account.");
+                } else {
+                    setError("Could not connect to the backend server. Please verify backend is running on port 5001.");
+                }
+            }
         } catch (err) {
-            console.error("Failed to load admin data:", err);
-            setError(err.response?.data?.message || "Failed to load admin dashboard data");
+            console.error("Unexpected load error:", err);
+            setError("Failed to load admin dashboard data");
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
 
@@ -117,9 +186,7 @@ function AdminDashboard() {
             }
             setResumeToDelete(null);
             setToast("Resume deleted successfully");
-            // Refresh stats
-            const statsData = await getAdminStats();
-            if (statsData.success) setStats(statsData.stats);
+            loadAllAdminData();
         } catch (err) {
             console.error("Failed to delete resume:", err);
             setError(err.response?.data?.message || "Failed to delete resume");
@@ -137,9 +204,7 @@ function AdminDashboard() {
             setResumes((prev) => prev.filter((r) => r.user?._id !== userToDelete._id));
             setUserToDelete(null);
             setToast("User account and data removed");
-            // Refresh stats
-            const statsData = await getAdminStats();
-            if (statsData.success) setStats(statsData.stats);
+            loadAllAdminData();
         } catch (err) {
             console.error("Failed to delete user:", err);
             setError(err.response?.data?.message || "Failed to delete user");
@@ -193,6 +258,7 @@ function AdminDashboard() {
             candidateLocation,
             candidateResume.personalInfo?.linkedin,
             candidateResume.personalInfo?.github,
+            candidateResume.personalInfo?.website,
         ].filter(Boolean);
 
         const contactLine = contacts.join("  •  ");
@@ -447,8 +513,17 @@ function AdminDashboard() {
                         </button>
                     </nav>
 
-                    {/* Right Profile & Logout */}
+                    {/* Right Profile & Actions */}
                     <div className="nav-actions">
+                        <button
+                            className="btn-outline-sm"
+                            onClick={loadAllAdminData}
+                            disabled={refreshing}
+                            title="Refresh Data"
+                        >
+                            {refreshing ? "🔄 Refreshing..." : "🔄 Refresh"}
+                        </button>
+
                         <div className="admin-user-chip">
                             <div className="admin-avatar-sm">
                                 {adminPictureUrl ? (
@@ -481,6 +556,11 @@ function AdminDashboard() {
                     <div className="error-message">
                         <span>⚠</span>
                         <div style={{ flex: 1 }}>{error}</div>
+                        {error.includes("login") && (
+                            <button className="btn-primary-sm" onClick={handleLogout}>
+                                Go to Login
+                            </button>
+                        )}
                         <button className="error-close" onClick={() => setError("")}>✕</button>
                     </div>
                 )}
@@ -492,24 +572,24 @@ function AdminDashboard() {
                     <div className="tab-content overview-tab animate-fade">
                         {/* Executive KPI Stats Grid */}
                         <div className="admin-kpi-grid">
-                            <div className="kpi-card">
+                            <div className="kpi-card" onClick={() => setActiveTab("users")} style={{ cursor: "pointer" }}>
                                 <div className="kpi-icon-box" style={{ background: "#eef2ff", color: "#4f46e5" }}>
                                     👥
                                 </div>
                                 <div className="kpi-details">
-                                    <span className="kpi-label">Registered Candidates</span>
-                                    <h3 className="kpi-value">{stats?.totalUsers ?? users.length}</h3>
-                                    <span className="kpi-trend">Total talent pool</span>
+                                    <span className="kpi-label">Registered Users</span>
+                                    <h3 className="kpi-value">{users.length || stats?.totalUsers || 0}</h3>
+                                    <span className="kpi-trend">Total accounts</span>
                                 </div>
                             </div>
 
-                            <div className="kpi-card">
+                            <div className="kpi-card" onClick={() => setActiveTab("resumes")} style={{ cursor: "pointer" }}>
                                 <div className="kpi-icon-box" style={{ background: "#ecfdf5", color: "#059669" }}>
                                     📄
                                 </div>
                                 <div className="kpi-details">
                                     <span className="kpi-label">Active Resumes</span>
-                                    <h3 className="kpi-value">{stats?.totalResumes ?? resumes.length}</h3>
+                                    <h3 className="kpi-value">{resumes.length || stats?.totalResumes || 0}</h3>
                                     <span className="kpi-trend">Profiles submitted</span>
                                 </div>
                             </div>
@@ -519,9 +599,11 @@ function AdminDashboard() {
                                     ✨
                                 </div>
                                 <div className="kpi-details">
-                                    <span className="kpi-label">AI Summaries Generated</span>
-                                    <h3 className="kpi-value">{stats?.resumesWithSummary ?? resumes.filter((r) => r.summary).length}</h3>
-                                    <span className="kpi-trend">Gemini verified</span>
+                                    <span className="kpi-label">AI Summaries</span>
+                                    <h3 className="kpi-value">
+                                        {resumes.filter((r) => r.summary).length || stats?.resumesWithSummary || 0}
+                                    </h3>
+                                    <span className="kpi-trend">Gemini analyzed</span>
                                 </div>
                             </div>
 
@@ -531,7 +613,9 @@ function AdminDashboard() {
                                 </div>
                                 <div className="kpi-details">
                                     <span className="kpi-label">Profile Completion Rate</span>
-                                    <h3 className="kpi-value">{stats?.completionRate ?? 0}%</h3>
+                                    <h3 className="kpi-value">
+                                        {users.length > 0 ? Math.round((resumes.length / users.length) * 100) : stats?.completionRate || 0}%
+                                    </h3>
                                     <span className="kpi-trend">Resume to User Ratio</span>
                                 </div>
                             </div>
@@ -559,7 +643,7 @@ function AdminDashboard() {
                                                 <div key={i} className="skill-bar-row">
                                                     <div className="skill-bar-info">
                                                         <span className="skill-name">{skill.name}</span>
-                                                        <span className="skill-count">{skill.count} candidates</span>
+                                                        <span className="skill-count">{skill.count} candidate{skill.count > 1 ? "s" : ""}</span>
                                                     </div>
                                                     <div className="skill-bar-track">
                                                         <div
@@ -956,6 +1040,13 @@ function AdminDashboard() {
                                             </tr>
                                         );
                                     })}
+                                    {filteredUsers.length === 0 && (
+                                        <tr>
+                                            <td colSpan={6} style={{ textAlign: "center", padding: "40px" }}>
+                                                No user accounts found.
+                                            </td>
+                                        </tr>
+                                    )}
                                 </tbody>
                             </table>
                         </div>
