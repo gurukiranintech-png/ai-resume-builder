@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import api from "../services/api";
+import api, { getApiBaseUrl } from "../services/api";
 import { updateMyProfile, uploadProfilePicture } from "../services/userService";
 import { improveResumeSummary, improveResumeProject } from "../services/aiService";
 import "./UserDashboard.css";
 import ChatWidget from "../components/ChatWidget";
 import jsPDF from "jspdf";
 
-const API_ORIGIN = api.defaults.baseURL.replace(/\/api\/?$/, "");
+const API_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "");
 
 function formatDate(dateString) {
     if (!dateString) return "";

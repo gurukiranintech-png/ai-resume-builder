@@ -7,11 +7,11 @@ import {
     deleteUser,
     getAdminStats,
 } from "../services/adminService";
-import api from "../services/api";
+import api, { getApiBaseUrl } from "../services/api";
 import jsPDF from "jspdf";
 import "./AdminDashboard.css";
 
-const API_ORIGIN = api.defaults.baseURL.replace(/\/api\/?$/, "");
+const API_ORIGIN = getApiBaseUrl().replace(/\/api\/?$/, "");
 
 function formatDate(dateString) {
     if (!dateString) return "";
@@ -152,17 +152,24 @@ function AdminDashboard() {
                 });
             }
 
-            if (failureReasons.length === 3) {
-                const authErr = resumesRes.reason?.response?.status === 401 || usersRes.reason?.response?.status === 401;
-                if (authErr) {
-                    setError("Session expired or unauthorized. Please re-login with your admin account.");
+            if (failureReasons.length > 0 && loadedUsers.length === 0 && loadedResumes.length === 0) {
+                const sampleErr = usersRes.reason || resumesRes.reason;
+                const status = sampleErr?.response?.status;
+                const errMsg = sampleErr?.response?.data?.message;
+
+                if (status === 401) {
+                    setError("Session expired or token invalid. Please log in again with your admin account.");
+                } else if (status === 403) {
+                    setError(errMsg || "Admin access required. Your account does not have administrator privileges on this server.");
+                } else if (!sampleErr?.response) {
+                    setError(`Network error: Cannot reach API at ${getApiBaseUrl()}. Please ensure your backend is live and VITE_API_URL is configured in your hosting settings.`);
                 } else {
-                    setError("Could not connect to the backend server. Please verify backend is running on port 5001.");
+                    setError(errMsg || "Failed to load admin dashboard data from server.");
                 }
             }
         } catch (err) {
             console.error("Unexpected load error:", err);
-            setError("Failed to load admin dashboard data");
+            setError(err.message || "Failed to load admin dashboard data");
         } finally {
             setLoading(false);
             setRefreshing(false);
